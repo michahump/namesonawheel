@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Up Next — presenter picker</title>
+  <title>Names on a Wheel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -512,7 +512,7 @@
   </aside>
 
   <div class="winner" id="winner" role="status" aria-live="polite">
-    <span class="eyebrow">Up next</span>
+    <span class="eyebrow">Winner</span>
     <div class="name" id="winnerName"></div>
     <button class="dismiss" id="dismiss">Done</button>
   </div>
@@ -528,15 +528,15 @@
     function readState() {
       try {
         const raw = decodeURIComponent(location.hash.slice(1));
-        if (!raw) return { ...DEFAULT };
+        if (!raw) return { n: DEFAULT.n.slice() };
         const o = JSON.parse(raw);
         return { n: Array.isArray(o.n) ? o.n.map(String) : DEFAULT.n.slice() };
-      } catch (e) { return { ...DEFAULT }; }
+      } catch (e) { return { n: DEFAULT.n.slice() }; }
     }
-    function writeState(st, push) {
+    function writeState(st) {
       const enc = encodeURIComponent(JSON.stringify({ n: st.n }));
       // replace (not push) so editing doesn't spam history
-      history[push ? "pushState" : "replaceState"](null, "", "#" + enc);
+      history.replaceState(null, "", "#" + enc);
     }
 
     let state = readState();
@@ -607,8 +607,8 @@
         prev = c;
         const a0 = i * seg, a1 = (i + 1) * seg;
         const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
-        const large = seg > 180 ? 1 : 0;
-        const path = `M ${CX} ${CY} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+        // seg is always ≤ 180° (N ≥ 2), so the large-arc-flag is always 0
+        const path = `M ${CX} ${CY} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
         const mid = a0 + seg / 2;
         const [lx, ly] = pt(mid, RLABEL);
         const fill = luminance(c) > 0.6 ? "#16151f" : "#f3ead6";
@@ -987,18 +987,16 @@
     function syncForm() {
       namesTA.value = state.n.join("\n");
     }
-    function applyEdits(push) {
+    function applyEdits() {
       state.n = namesTA.value.split("\n");
       names = cleanNames(state.n);
-      writeState(state, push);
-      renderWheel();
-      updateCaption();
-      spinBtn.disabled = names.length < 2;
+      writeState(state);
+      refresh();
     }
-    namesTA.addEventListener("input", () => applyEdits(false));
+    namesTA.addEventListener("input", applyEdits);
 
     document.getElementById("copy").addEventListener("click", async () => {
-      applyEdits(false);
+      applyEdits();
       const url = location.origin + location.pathname + location.hash;
       try { await navigator.clipboard.writeText(url); toast("Link copied"); }
       catch (e) { toast("Copy failed — select the address bar"); }
@@ -1019,17 +1017,22 @@
     }
 
     /* ---------- init ---------- */
+    // Re-render the wheel, caption, and spin button from the current `names`
+    function refresh() {
+      renderWheel();
+      updateCaption();
+      spinBtn.disabled = names.length < 2;
+    }
+
     spinBtn.addEventListener("click", spin);
     addEventListener("hashchange", () => {
       state = readState(); names = cleanNames(state.n);
-      syncForm(); renderWheel(); updateCaption(); spinBtn.disabled = names.length < 2;
+      syncForm(); refresh();
     });
 
-    writeState(state, false); // normalize URL if it was empty
+    writeState(state); // normalize URL if it was empty
     syncForm();
-    renderWheel();
-    updateCaption();
-    spinBtn.disabled = names.length < 2;
+    refresh();
   </script>
 </body>
 
