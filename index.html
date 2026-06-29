@@ -1,671 +1,1036 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Up Next — presenter picker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,600;0,9..144,500&family=Hanken+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --ink:#16151f; --ink2:#1f1d2b; --panel:#211f2e;
-    --cream:#f3ead6; --muted:#9a96ab; --line:#332f44;
-    --coral:#ff5d52;
-    --shadow:0 20px 60px -20px rgba(0,0,0,.7);
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{
-    background:
-      radial-gradient(1200px 600px at 50% -10%, #221f33 0%, transparent 60%),
-      var(--ink);
-    color:var(--cream);
-    font-family:"Hanken Grotesk",system-ui,sans-serif;
-    overflow:hidden;
-    min-height:100%;
-  }
-  /* subtle grain */
-  body::after{
-    content:"";position:fixed;inset:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-  #confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
-
-  header{
-    position:fixed;top:0;left:0;right:0;display:flex;align-items:baseline;gap:14px;
-    padding:18px 22px;z-index:20;
-  }
-  .brand{font-family:"Fraunces";font-style:italic;font-weight:600;font-size:24px;letter-spacing:.2px}
-  .tag{color:var(--muted);font-size:13px}
-  .menu-btn{
-    margin-left:auto;background:var(--ink2);border:1px solid var(--line);color:var(--cream);
-    border-radius:10px;padding:9px 14px;font:500 14px/1 "Hanken Grotesk";cursor:pointer;
-  }
-  .menu-btn:hover{border-color:#4a4560}
-
-  main{
-    height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:26px;padding:80px 16px 32px;
-  }
-  .stage{position:relative;width:min(78vmin,520px);aspect-ratio:1}
-  .pointer{
-    position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(var(--flap,0deg));
-    transform-origin:50% 0;z-index:5;
-    width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;
-    border-top:30px solid var(--cream);filter:drop-shadow(0 4px 6px rgba(0,0,0,.5));
-  }
-  .hub{
-    position:absolute;top:50%;left:50%;width:14%;height:14%;transform:translate(-50%,-50%);
-    background:var(--cream);border-radius:50%;z-index:4;box-shadow:0 4px 14px rgba(0,0,0,.5);
-  }
-  #wheel{width:100%;height:100%;display:block;transform:rotate(0deg);will-change:transform;
-    filter:drop-shadow(0 24px 40px rgba(0,0,0,.45))}
-
-  .controls{display:flex;flex-direction:column;align-items:center;gap:10px}
-  .spin{
-    font-family:"Fraunces";font-style:italic;font-weight:600;font-size:22px;letter-spacing:.3px;
-    color:var(--ink);background:var(--coral);border:none;border-radius:999px;
-    padding:16px 54px;cursor:pointer;box-shadow:0 10px 0 -2px #b8362e, var(--shadow);
-    transition:transform .08s ease, box-shadow .08s ease;
-  }
-  .spin:active{transform:translateY(4px);box-shadow:0 6px 0 -2px #b8362e, var(--shadow)}
-  .spin:disabled{background:#4a4560;color:var(--muted);box-shadow:none;cursor:not-allowed}
-  .caption{color:var(--muted);font-size:13px;text-align:center}
-  .caption b{color:var(--cream);font-weight:500}
-
-  /* drawer */
-  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;
-    transition:opacity .25s ease;z-index:30}
-  .scrim.open{opacity:1;pointer-events:auto}
-  aside{
-    position:fixed;top:0;right:0;height:100%;width:min(92vw,380px);background:var(--panel);
-    border-left:1px solid var(--line);transform:translateX(100%);transition:transform .28s ease;
-    z-index:40;display:flex;flex-direction:column;box-shadow:var(--shadow)}
-  aside.open{transform:none}
-  .a-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
-  .a-head h2{font-family:"Fraunces";font-style:italic;font-weight:600;margin:0;font-size:20px}
-  .x{background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1}
-  .a-body{padding:18px 20px;overflow:auto;display:flex;flex-direction:column;gap:18px}
-  label{display:block;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-  textarea,input{
-    width:100%;background:var(--ink2);border:1px solid var(--line);border-radius:10px;
-    color:var(--cream);padding:11px 12px;font:400 14px/1.5 "Hanken Grotesk";resize:vertical}
-  textarea{min-height:200px}
-  .hint{font-size:12px;color:var(--muted);line-height:1.5}
-  .copy{background:var(--coral);color:var(--ink);border:none;border-radius:10px;
-    padding:13px;font:600 14px/1 "Hanken Grotesk";cursor:pointer;width:100%}
-
-  /* winner overlay */
-  .winner{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:8px;z-index:50;
-    background:
-      radial-gradient(65% 50% at 50% 44%, rgba(255,93,82,.20) 0%, transparent 70%),
-      radial-gradient(85% 85% at 50% 50%, transparent 25%, rgba(0,0,0,.60) 100%),
-      rgba(8,7,13,.84);
-    backdrop-filter:blur(6px);
-    opacity:0;pointer-events:none;transition:opacity .35s ease}
-  .winner.show{opacity:1;pointer-events:auto}
-  .winner .eyebrow{color:var(--coral);font-size:14px;letter-spacing:3px;text-transform:uppercase;
-    filter:drop-shadow(0 0 8px rgba(255,93,82,.6))}
-  .winner .name{font-family:"Fraunces";font-style:italic;font-weight:600;
-    font-size:clamp(40px,11vw,104px);line-height:1;text-align:center;padding:0 16px;
-    transform:scale(.9);transition:transform .4s cubic-bezier(0.16,1,0.3,1);
-    text-shadow:0 0 60px rgba(255,93,82,.45), 0 0 20px rgba(255,93,82,.25), 0 6px 24px rgba(0,0,0,.9)}
-  .winner.show .name{transform:scale(1)}
-  .winner .sub{color:rgba(243,234,214,.78);font-size:15px;margin-top:6px;
-    text-shadow:0 2px 8px rgba(0,0,0,.8)}
-  .winner .dismiss{margin-top:18px;background:none;border:1px solid var(--line);color:var(--cream);
-    border-radius:999px;padding:10px 22px;font:500 14px/1 "Hanken Grotesk";cursor:pointer}
-
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
-    background:var(--cream);color:var(--ink);padding:11px 18px;border-radius:10px;font:500 14px/1 "Hanken Grotesk";
-    opacity:0;transition:all .25s ease;z-index:70}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  /* empty state */
-  .empty{
-    position:absolute;inset:0;border-radius:50%;
-    border:2px dashed var(--line);
-    background:radial-gradient(circle, #1c1a2a 0%, var(--ink) 72%);
-    box-shadow:0 24px 40px -10px rgba(0,0,0,.45);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;padding:22px;z-index:3;
-  }
-  .empty-icon{
-    font-size:32px;opacity:.35;line-height:1;
-    color:var(--cream);
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .empty-icon{ animation:empty-spin 18s linear infinite; }
-  }
-  @keyframes empty-spin{ to{ transform:rotate(360deg); } }
-  .empty-msg{
-    margin:0;text-align:center;color:var(--muted);
-    font-size:15px;line-height:1.45;max-width:160px;
-  }
-  .empty-cta{
-    background:var(--coral);color:var(--ink);border:none;border-radius:999px;
-    padding:11px 26px;font:600 14px/1 "Hanken Grotesk";cursor:pointer;
-    box-shadow:0 6px 0 -2px #b8362e;
-    transition:transform .08s ease, box-shadow .08s ease;
-  }
-  .empty-cta:active{ transform:translateY(3px);box-shadow:0 3px 0 -2px #b8362e; }
-  .stage.is-empty .hub{ display:none; }
-  .empty[hidden]{ display:none; }
-
-</style>
-</head>
-<body>
-<canvas id="confetti"></canvas>
-
-<header>
-  <span class="brand">Up Next</span>
-  <span class="tag">today's presenter, picked fair</span>
-  <button class="menu-btn" id="openMenu">Edit names</button>
-</header>
-
-<main>
-  <div class="stage">
-    <div class="pointer"></div>
-    <svg id="wheel" viewBox="0 0 400 400" aria-hidden="true"></svg>
-    <div class="hub"></div>
-    <div class="empty" id="empty" hidden>
-      <div class="empty-icon" aria-hidden="true">✦</div>
-      <p class="empty-msg" id="emptyMsg"></p>
-      <button class="empty-cta" id="emptyAdd">Add names</button>
-    </div>
-  </div>
-  <div class="controls">
-    <button class="spin" id="spin">Spin</button>
-    <div class="caption" id="caption"></div>
-  </div>
-</main>
-
-<div class="scrim" id="scrim"></div>
-<aside id="drawer" aria-label="Settings">
-  <div class="a-head">
-    <h2>Edit names</h2>
-    <button class="x" id="closeMenu" aria-label="Close">&times;</button>
-  </div>
-  <div class="a-body">
-    <div>
-      <label for="names">Names — one per line</label>
-      <textarea id="names" spellcheck="false"></textarea>
-    </div>
-    <button class="copy" id="copy">Copy share link</button>
-    <p class="hint">Every spin picks a fresh name at random. The share link carries the roster (these names), so anyone on the team can open it and run the draw — no setup, no sign-in.</p>
-  </div>
-</aside>
-
-<div class="winner" id="winner" role="status" aria-live="polite">
-  <span class="eyebrow">Up next</span>
-  <div class="name" id="winnerName"></div>
-  <div class="sub" id="winnerSub"></div>
-  <button class="dismiss" id="dismiss">Done</button>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-"use strict";
-
-/* ---------- state in URL fragment (roster only) ---------- */
-const DEFAULT = { n: ["Ada", "Grace", "Linus", "Margaret", "Dennis", "Barbara"] };
-
-function readState() {
-  try {
-    const raw = decodeURIComponent(location.hash.slice(1));
-    if (!raw) return { ...DEFAULT };
-    const o = JSON.parse(raw);
-    return { n: Array.isArray(o.n) ? o.n.map(String) : DEFAULT.n.slice() };
-  } catch (e) { return { ...DEFAULT }; }
-}
-function writeState(st, push) {
-  const enc = encodeURIComponent(JSON.stringify({ n: st.n }));
-  // replace (not push) so editing doesn't spam history
-  history[push ? "pushState" : "replaceState"](null, "", "#" + enc);
-}
-
-let state = readState();
-let names = cleanNames(state.n);
-
-function cleanNames(arr) {
-  return arr.map(s => s.trim()).filter(Boolean);
-}
-function localDateISO(d = new Date()) {
-  const z = n => String(n).padStart(2, "0");
-  return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
-}
-/* unbiased index from the platform CSPRNG (rejection sampling kills modulo bias) */
-function pickIndex(N) {
-  if (N < 2) return -1;
-  const limit = Math.floor(0x100000000 / N) * N;
-  const buf = new Uint32Array(1);
-  let x;
-  do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limit);
-  return x % N;
-}
-
-/* ---------- wheel rendering ---------- */
-const PALETTE = ["#ff5d52", "#ffb43d", "#2bb6a8", "#7c5cd6", "#3f8fd8", "#e85aa0", "#7bbf4a"];
-const CX = 200, CY = 200, R = 192, RLABEL = 122;
-const wheel = document.getElementById("wheel");
-
-function luminance(hex) {
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-}
-function shade(hex, factor) {
-  const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
-  const r = clamp(parseInt(hex.slice(1, 3), 16) * factor);
-  const g = clamp(parseInt(hex.slice(3, 5), 16) * factor);
-  const b = clamp(parseInt(hex.slice(5, 7), 16) * factor);
-  return "#" + [r, g, b].map(c => c.toString(16).padStart(2, "0")).join("");
-}
-function pt(angleDeg, rad) {
-  const a = (angleDeg * Math.PI) / 180; // clockwise from top
-  return [CX + rad * Math.sin(a), CY - rad * Math.cos(a)];
-}
-function truncate(s, max) { return s.length > max ? s.slice(0, max - 1) + "…" : s; }
-
-const stageEl   = document.querySelector(".stage");
-const emptyEl   = document.getElementById("empty");
-const emptyMsg  = document.getElementById("emptyMsg");
-
-function renderWheel() {
-  const N = names.length;
-  wheel.innerHTML = "";
-
-  if (N < 2) {
-    stageEl.classList.add("is-empty");
-    emptyEl.hidden = false;
-    emptyMsg.textContent = N === 0
-      ? "No names yet — add a few to start the draw."
-      : "Just one name — add at least one more to spin.";
-    return;
-  }
-
-  stageEl.classList.remove("is-empty");
-  emptyEl.hidden = true;
-
-  const seg = 360 / N;
-  const fs = Math.max(11, Math.min(22, 24 - N * 0.6));
-  const maxChars = Math.max(6, Math.round(16 - N * 0.25));
-  let prev = null;
-  for (let i = 0; i < N; i++) {
-    let c = PALETTE[i % PALETTE.length];
-    if (c === prev) c = PALETTE[(i + 1) % PALETTE.length]; // avoid adjacent repeat on wrap
-    prev = c;
-    const a0 = i * seg, a1 = (i + 1) * seg;
-    const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
-    const large = seg > 180 ? 1 : 0;
-    const path = `M ${CX} ${CY} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
-    const mid = a0 + seg / 2;
-    const [lx, ly] = pt(mid, RLABEL);
-    const fill = luminance(c) > 0.6 ? "#16151f" : "#f3ead6";
-    wheel.insertAdjacentHTML("beforeend",
-      `<path d="${path}" fill="${c}" stroke="#16151f" stroke-width="1.5"/>` +
-      `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="middle" dominant-baseline="central"
-        transform="rotate(${mid.toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})"
-        font-family="Hanken Grotesk" font-weight="700" font-size="${fs}" fill="${fill}"
-        style="paint-order:stroke">${esc(truncate(names[i], maxChars))}</text>`);
-  }
-}
-function esc(s) { return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
-
-/* ---------- pointer flapper ---------- */
-const pointer = document.querySelector(".pointer");
-let flapPos = 0, flapVel = 0, flapRaf = null;
-const FLAP_K = 0.22, FLAP_D = 0.18, FLAP_KICK = 20, FLAP_MAX = 22;
-
-function startFlapper({ N, startRot, dip, target }) {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches || N < 2) return;
-  cancelAnimationFrame(flapRaf);
-  flapPos = 0; flapVel = 0;
-
-  const segDeg = 360 / N;
-  const t0 = performance.now();
-  // Track absolute wheel angle in "world" degrees (same as `rotation` variable)
-  let lastPinIdx = Math.floor(startRot / segDeg);
-
-  // Evaluate CSS cubic-bezier(x1,y1,x2,y2) at progress p via binary search on Bx(t)=p
-  function easeBez(x1, y1, x2, y2, p) {
-    p = Math.max(0, Math.min(1, p));
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 10; i++) {
-      const t = (lo + hi) * 0.5;
-      const bx = t*t*t + 3*x2*t*t*(1-t) + 3*x1*t*(1-t)*(1-t);
-      if (bx < p) lo = t; else hi = t;
-    }
-    const t = (lo + hi) * 0.5;
-    return t*t*t + 3*y2*t*t*(1-t) + 3*y1*t*(1-t)*(1-t);
-  }
-
-  // Return the wheel's expected world angle at `elapsed` ms into the spin,
-  // mirroring the exact easing curves used in wheel.animate()
-  function wheelAngle(elapsed) {
-    if (elapsed <= 0) return startRot;
-    if (elapsed >= ANTICIPATE_MS + SPIN_MS) return target;
-    if (elapsed <= ANTICIPATE_MS)
-      return startRot + easeBez(0.4, 0, 0.5, 1, elapsed / ANTICIPATE_MS) * (dip - startRot);
-    return dip + easeBez(0.28, 0, 0.12, 1, (elapsed - ANTICIPATE_MS) / SPIN_MS) * (target - dip);
-  }
-
-  function frame() {
-    const angle = wheelAngle(performance.now() - t0);
-    // Pin crossings: every time the world angle crosses a multiple of segDeg
-    const pinIdx = Math.floor(angle / segDeg);
-    if (pinIdx > lastPinIdx) {
-      flapVel -= FLAP_KICK; // one kick regardless of how many crossed this frame
-      lastPinIdx = pinIdx;
-    } else if (pinIdx < lastPinIdx) {
-      lastPinIdx = pinIdx;  // pullback — update index, no kick
-    }
-    flapVel += (-FLAP_K * flapPos - FLAP_D * flapVel);
-    flapPos += flapVel;
-    flapPos = Math.max(-FLAP_MAX, Math.min(FLAP_MAX, flapPos));
-    pointer.style.setProperty("--flap", flapPos.toFixed(2) + "deg");
-    flapRaf = requestAnimationFrame(frame);
-  }
-  flapRaf = requestAnimationFrame(frame);
-}
-
-function stopFlapper() {
-  cancelAnimationFrame(flapRaf);
-  // Ring down the spring naturally before resetting
-  function settle() {
-    flapVel += (-FLAP_K * flapPos - FLAP_D * flapVel);
-    flapPos += flapVel;
-    flapPos = Math.max(-FLAP_MAX, Math.min(FLAP_MAX, flapPos));
-    pointer.style.setProperty("--flap", flapPos.toFixed(2) + "deg");
-    if (Math.abs(flapPos) > 0.12 || Math.abs(flapVel) > 0.06) {
-      flapRaf = requestAnimationFrame(settle);
-    } else {
-      flapPos = 0; flapVel = 0;
-      pointer.style.setProperty("--flap", "0deg");
-    }
-  }
-  flapRaf = requestAnimationFrame(settle);
-}
-
-/* ---------- spin ---------- */
-let rotation = 0;
-let spinning = false;
-const SPINS = 5;
-const ANTICIPATION  = 16;   // deg the wheel pulls back before launching
-const SPIN_MS       = 4500; // forward spin duration (punchy)
-const ANTICIPATE_MS = 320;  // pull-back phase duration
-const REDUCED_MS    = 400;  // single-phase duration under reduced motion
-const spinBtn = document.getElementById("spin");
-
-function spin() {
-  const N = names.length;
-  const idx = pickIndex(N);
-  if (idx < 0 || spinning) return;
-  spinning = true;
-  spinBtn.disabled = true;
-  hideWinner();
-
-  const seg = 360 / N;
-  const winnerMid = idx * seg + seg / 2;           // clockwise deg from top
-  const desired = (360 - (winnerMid % 360)) % 360; // rotation (mod 360) putting winner under top pointer
-  const base = rotation - (rotation % 360);
-  let target = base + SPINS * 360 + desired;
-  if (target <= rotation + 360) target += 360;     // always travel forward
-  const startRot = rotation;
-  rotation = target;
-
-  let anim;
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    // Reduced motion: direct snap, no anticipation
-    anim = wheel.animate([
-      { transform: `rotate(${startRot}deg)` },
-      { transform: `rotate(${target}deg)` },
-    ], { duration: REDUCED_MS, easing: "ease-out", fill: "forwards" });
-  } else {
-    // Full motion: pull back slightly → hard launch → long coast
-    const dip = startRot - ANTICIPATION;
-    const dipOffset = ANTICIPATE_MS / (ANTICIPATE_MS + SPIN_MS);
-    anim = wheel.animate([
-      { transform: `rotate(${startRot}deg)`, offset: 0,
-        easing: "cubic-bezier(0.4,0,0.5,1)" },       // ease into pull-back
-      { transform: `rotate(${dip}deg)`, offset: dipOffset,
-        easing: "cubic-bezier(0.28,0,0.12,1)" },     // launch: accelerate → long coast
-      { transform: `rotate(${target}deg)`, offset: 1 },
-    ], { duration: ANTICIPATE_MS + SPIN_MS, fill: "forwards" });
-    startFlapper({ N, startRot, dip, target });      // begin pointer flap
-  }
-
-  anim.finished.then(() => {
-    wheel.style.transform = `rotate(${target}deg)`; // commit final state as inline style
-    anim.cancel();                                   // drop the fill so inline style takes over
-    stopFlapper();                                   // ring down the pointer spring
-    finishSpin(idx);
-  }).catch(() => {}); // animation interrupted — no-op
-}
-
-function finishSpin(idx) {
-  spinning = false;
-  spinBtn.disabled = false;
-  showWinner(names[idx]);
-  burst();
-}
-
-/* ---------- winner overlay ---------- */
-const winnerEl = document.getElementById("winner");
-const winnerName = document.getElementById("winnerName");
-const winnerSub = document.getElementById("winnerSub");
-function showWinner(name) {
-  winnerName.textContent = name;
-  winnerSub.textContent = "presenter for " + localDateISO();
-  winnerEl.classList.add("show");
-}
-function hideWinner() { winnerEl.classList.remove("show"); }
-document.getElementById("dismiss").addEventListener("click", hideWinner);
-winnerEl.addEventListener("click", e => { if (e.target === winnerEl) hideWinner(); });
-
-/* ---------- confetti (self-contained) ---------- */
-const cvs = document.getElementById("confetti");
-const cx = cvs.getContext("2d");
-let parts = [], raf = null, dpr = 1, emitUntil = 0;
-function sizeCanvas() {
-  dpr = window.devicePixelRatio || 1;
-  cvs.width = innerWidth * dpr; cvs.height = innerHeight * dpr;
-  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-addEventListener("resize", sizeCanvas); sizeCanvas();
-
-// Weighted shape picker: 55% rect, 25% dot, 20% ribbon
-function pickShape() {
-  const r = Math.random();
-  return r < 0.55 ? "rect" : r < 0.80 ? "dot" : "ribbon";
-}
-
-function makePart(x, y, vx, vy) {
-  const color = PALETTE[(Math.random() * PALETTE.length) | 0];
-  const shape = pickShape();
-  const isRibbon = shape === "ribbon";
-  return {
-    x, y, vx, vy,
-    shape,
-    g:       0.18 + Math.random() * 0.10,
-    w:       isRibbon ? 3 + Math.random() * 3  : 6 + Math.random() * 6,
-    h:       isRibbon ? 14 + Math.random() * 14 : 7 + Math.random() * 8,
-    r:       3 + Math.random() * 4,           // dot radius
-    rot:     Math.random() * Math.PI,
-    vr:      (Math.random() - 0.5) * 0.35,
-    flip:    Math.random() * Math.PI * 2,     // 3-D tumble angle (independent axis)
-    vflip:   0.12 + Math.random() * 0.18,     // tumble speed
-    color,
-    backColor: shade(color, 0.55),            // darker back face
-    foil:    Math.random() < 0.15,            // metallic shimmer
-    life:    110 + Math.random() * 60,
-  };
-}
-
-function burst() {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  // Stage 1 (t=0) — central radial pop synced with the winner card
-  const cx_ = innerWidth * 0.5, cy_ = innerHeight * 0.42;
-  for (let i = 0; i < 60; i++) {
-    const ang = (i / 60) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-    const spd = 10 + Math.random() * 14;
-    parts.push(makePart(cx_, cy_, Math.cos(ang) * spd, Math.sin(ang) * spd));
-  }
-
-  if (!raf) loop();
-
-  // Stage 2 (t≈150ms) — corner cannons
-  setTimeout(() => {
-    const lx = innerWidth * 0.04, ly = innerHeight * 0.88;
-    for (let i = 0; i < 70; i++) {
-      const ang = -Math.PI * 0.435 + (Math.random() - 0.5) * (Math.PI * 0.28);
-      const spd = 16 + Math.random() * 12;
-      parts.push(makePart(lx, ly, Math.cos(ang) * spd, Math.sin(ang) * spd));
-    }
-    const rx = innerWidth * 0.96, ry = innerHeight * 0.88;
-    for (let i = 0; i < 70; i++) {
-      const ang = -Math.PI * 0.565 + (Math.random() - 0.5) * (Math.PI * 0.28);
-      const spd = 16 + Math.random() * 12;
-      parts.push(makePart(rx, ry, Math.cos(ang) * spd, Math.sin(ang) * spd));
-    }
-  }, 150);
-
-  // Stage 3 (t≈300ms → ~2.5s) — settling shower from the top
-  setTimeout(() => { emitUntil = performance.now() + 2200; }, 300);
-}
-
-function loop() {
-  const now = performance.now();
-  cx.clearRect(0, 0, innerWidth, innerHeight);
-
-  // Top shower — drip out new particles while the emitter is live
-  if (now < emitUntil && parts.length < 800) {
-    const batch = 4 + (Math.random() * 3 | 0);
-    for (let i = 0; i < batch; i++) {
-      const vx = (Math.random() - 0.5) * 5;
-      const vy = 1.5 + Math.random() * 3;
-      parts.push(makePart(Math.random() * innerWidth, -12, vx, vy));
-    }
-  }
-
-  parts = parts.filter(p => p.life > 0 && p.y < innerHeight + 40);
-  for (const p of parts) {
-    // Physics
-    p.vy = Math.min(p.vy + p.g, 22); // terminal velocity cap
-    p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.rot += p.vr;
-    p.flip += p.vflip; p.life--;
-
-    const alpha = Math.min(1, p.life / 30);
-    const cosFlip = Math.cos(p.flip);
-    const facing = cosFlip >= 0; // true = front face visible
-
-    cx.save();
-    cx.translate(p.x, p.y);
-    cx.rotate(p.rot);
-    cx.globalAlpha = alpha;
-
-    if (p.shape === "dot") {
-      // Dots: squash along the flip axis for a coin-flip illusion
-      cx.scale(1, Math.abs(cosFlip) * 0.6 + 0.4);
-      cx.fillStyle = facing ? p.color : p.backColor;
-      cx.beginPath();
-      cx.arc(0, 0, p.r, 0, Math.PI * 2);
-      cx.fill();
-    } else if (p.shape === "ribbon") {
-      // Ribbon: thin streamer that curves slightly with the flip
-      const bend = cosFlip * p.w * 0.8;
-      cx.fillStyle = facing ? p.color : p.backColor;
-      cx.beginPath();
-      cx.moveTo(-p.w / 2, -p.h / 2);
-      cx.quadraticCurveTo(bend, 0, -p.w / 2, p.h / 2);
-      cx.quadraticCurveTo(p.w / 2 + bend, 0, p.w / 2, -p.h / 2);
-      cx.closePath();
-      cx.fill();
-    } else {
-      // Rect: scale width by |cos| for the 3-D tumble
-      cx.scale(Math.abs(cosFlip), 1);
-      cx.fillStyle = facing ? p.color : p.backColor;
-      cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Up Next — presenter picker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,600;0,9..144,500&family=Hanken+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #16151f;
+      --ink2: #1f1d2b;
+      --panel: #211f2e;
+      --cream: #f3ead6;
+      --muted: #9a96ab;
+      --line: #332f44;
+      --coral: #ff5d52;
+      --shadow: 0 20px 60px -20px rgba(0, 0, 0, .7);
     }
 
-    // Foil shimmer — flash a bright highlight at face-on peak
-    if (p.foil && Math.abs(cosFlip) > 0.85) {
-      cx.globalAlpha = alpha * (Math.abs(cosFlip) - 0.85) / 0.15 * 0.65;
-      cx.fillStyle = shade(p.color, 2.2);
-      if (p.shape === "dot") {
-        cx.beginPath(); cx.arc(0, 0, p.r * 0.55, 0, Math.PI * 2); cx.fill();
-      } else {
-        cx.fillRect(-p.w * 0.3, -p.h / 2, p.w * 0.6, p.h);
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%
+    }
+
+    body {
+      background:
+        radial-gradient(1200px 600px at 50% -10%, #221f33 0%, transparent 60%),
+        var(--ink);
+      color: var(--cream);
+      font-family: "Hanken Grotesk", system-ui, sans-serif;
+      overflow: hidden;
+      min-height: 100%;
+    }
+
+    /* subtle grain */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .04;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    #confetti {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 60
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      padding: 18px 22px;
+      z-index: 20;
+    }
+
+    .brand {
+      font-family: "Fraunces";
+      font-style: italic;
+      font-weight: 600;
+      font-size: 24px;
+      letter-spacing: .2px
+    }
+
+    .tag {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .menu-btn {
+      margin-left: auto;
+      background: var(--ink2);
+      border: 1px solid var(--line);
+      color: var(--cream);
+      border-radius: 10px;
+      padding: 9px 14px;
+      font: 500 14px/1 "Hanken Grotesk";
+      cursor: pointer;
+    }
+
+    .menu-btn:hover {
+      border-color: #4a4560
+    }
+
+    main {
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 26px;
+      padding: 80px 16px 32px;
+    }
+
+    .stage {
+      position: relative;
+      width: min(78vmin, 520px);
+      aspect-ratio: 1
+    }
+
+    .pointer {
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%) rotate(var(--flap, 0deg));
+      transform-origin: 50% 0;
+      z-index: 5;
+      width: 0;
+      height: 0;
+      border-left: 18px solid transparent;
+      border-right: 18px solid transparent;
+      border-top: 30px solid var(--cream);
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .5));
+    }
+
+    .hub {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14%;
+      height: 14%;
+      transform: translate(-50%, -50%);
+      background: var(--cream);
+      border-radius: 50%;
+      z-index: 4;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+    }
+
+    #wheel {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform: rotate(0deg);
+      will-change: transform;
+      filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .45))
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px
+    }
+
+    .spin {
+      font-family: "Fraunces";
+      font-style: italic;
+      font-weight: 600;
+      font-size: 22px;
+      letter-spacing: .3px;
+      color: var(--ink);
+      background: var(--coral);
+      border: none;
+      border-radius: 999px;
+      padding: 16px 54px;
+      cursor: pointer;
+      box-shadow: 0 10px 0 -2px #b8362e, var(--shadow);
+      transition: transform .08s ease, box-shadow .08s ease;
+    }
+
+    .spin:active {
+      transform: translateY(4px);
+      box-shadow: 0 6px 0 -2px #b8362e, var(--shadow)
+    }
+
+    .spin:disabled {
+      background: #4a4560;
+      color: var(--muted);
+      box-shadow: none;
+      cursor: not-allowed
+    }
+
+    .caption {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center
+    }
+
+    .caption b {
+      color: var(--cream);
+      font-weight: 500
+    }
+
+    /* drawer */
+    .scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+      z-index: 30
+    }
+
+    .scrim.open {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    aside {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: min(92vw, 380px);
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+      transform: translateX(100%);
+      transition: transform .28s ease;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow)
+    }
+
+    aside.open {
+      transform: none
+    }
+
+    .a-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .a-head h2 {
+      font-family: "Fraunces";
+      font-style: italic;
+      font-weight: 600;
+      margin: 0;
+      font-size: 20px
+    }
+
+    .x {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1
+    }
+
+    .a-body {
+      padding: 18px 20px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      background: var(--ink2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--cream);
+      padding: 11px 12px;
+      font: 400 14px/1.5 "Hanken Grotesk";
+      resize: vertical
+    }
+
+    textarea {
+      min-height: 200px
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5
+    }
+
+    .copy {
+      background: var(--coral);
+      color: var(--ink);
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font: 600 14px/1 "Hanken Grotesk";
+      cursor: pointer;
+      width: 100%
+    }
+
+    /* winner overlay */
+    .winner {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      z-index: 50;
+      background:
+        radial-gradient(65% 50% at 50% 44%, rgba(255, 93, 82, .20) 0%, transparent 70%),
+        radial-gradient(85% 85% at 50% 50%, transparent 25%, rgba(0, 0, 0, .60) 100%),
+        rgba(8, 7, 13, .84);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease
+    }
+
+    .winner.show {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    .winner .eyebrow {
+      color: var(--coral);
+      font-size: 14px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      filter: drop-shadow(0 0 8px rgba(255, 93, 82, .6))
+    }
+
+    .winner .name {
+      font-family: "Fraunces";
+      font-style: italic;
+      font-weight: 600;
+      font-size: clamp(40px, 11vw, 104px);
+      line-height: 1;
+      text-align: center;
+      padding: 0 16px;
+      transform: scale(.9);
+      transition: transform .4s cubic-bezier(0.16, 1, 0.3, 1);
+      text-shadow: 0 0 60px rgba(255, 93, 82, .45), 0 0 20px rgba(255, 93, 82, .25), 0 6px 24px rgba(0, 0, 0, .9)
+    }
+
+    .winner.show .name {
+      transform: scale(1)
+    }
+
+    .winner .sub {
+      color: rgba(243, 234, 214, .78);
+      font-size: 15px;
+      margin-top: 6px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, .8)
+    }
+
+    .winner .dismiss {
+      margin-top: 18px;
+      background: none;
+      border: 1px solid var(--line);
+      color: var(--cream);
+      border-radius: 999px;
+      padding: 10px 22px;
+      font: 500 14px/1 "Hanken Grotesk";
+      cursor: pointer
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--cream);
+      color: var(--ink);
+      padding: 11px 18px;
+      border-radius: 10px;
+      font: 500 14px/1 "Hanken Grotesk";
+      opacity: 0;
+      transition: all .25s ease;
+      z-index: 70
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0)
+    }
+
+    /* empty state */
+    .empty {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px dashed var(--line);
+      background: radial-gradient(circle, #1c1a2a 0%, var(--ink) 72%);
+      box-shadow: 0 24px 40px -10px rgba(0, 0, 0, .45);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 22px;
+      z-index: 3;
+    }
+
+    .empty-icon {
+      font-size: 32px;
+      opacity: .35;
+      line-height: 1;
+      color: var(--cream);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .empty-icon {
+        animation: empty-spin 18s linear infinite;
       }
     }
 
-    cx.restore();
-  }
-  if (parts.length || now < emitUntil) raf = requestAnimationFrame(loop);
-  else { raf = null; cx.clearRect(0, 0, innerWidth, innerHeight); }
-}
+    @keyframes empty-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
-/* ---------- drawer + editing ---------- */
-const drawer = document.getElementById("drawer");
-const scrim = document.getElementById("scrim");
-const namesTA = document.getElementById("names");
+    .empty-msg {
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+      max-width: 160px;
+    }
 
-function openDrawer() { drawer.classList.add("open"); scrim.classList.add("open"); }
-function closeDrawer() { drawer.classList.remove("open"); scrim.classList.remove("open"); }
-document.getElementById("openMenu").addEventListener("click", openDrawer);
-document.getElementById("closeMenu").addEventListener("click", closeDrawer);
-document.getElementById("emptyAdd").addEventListener("click", openDrawer);
-scrim.addEventListener("click", closeDrawer);
+    .empty-cta {
+      background: var(--coral);
+      color: var(--ink);
+      border: none;
+      border-radius: 999px;
+      padding: 11px 26px;
+      font: 600 14px/1 "Hanken Grotesk";
+      cursor: pointer;
+      box-shadow: 0 6px 0 -2px #b8362e;
+      transition: transform .08s ease, box-shadow .08s ease;
+    }
 
-function syncForm() {
-  namesTA.value = state.n.join("\n");
-}
-function applyEdits(push) {
-  state.n = namesTA.value.split("\n");
-  names = cleanNames(state.n);
-  writeState(state, push);
-  renderWheel();
-  updateCaption();
-  spinBtn.disabled = names.length < 2;
-}
-namesTA.addEventListener("input", () => applyEdits(false));
+    .empty-cta:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 -2px #b8362e;
+    }
 
-document.getElementById("copy").addEventListener("click", async () => {
-  applyEdits(false);
-  const url = location.origin + location.pathname + location.hash;
-  try { await navigator.clipboard.writeText(url); toast("Link copied"); }
-  catch (e) { toast("Copy failed — select the address bar"); }
-});
+    .stage.is-empty .hub {
+      display: none;
+    }
 
-/* ---------- caption + toast ---------- */
-const captionEl = document.getElementById("caption");
-function updateCaption() {
-  const N = names.length;
-  if (N < 2) { captionEl.innerHTML = "Add at least <b>2 names</b> in “Edit names”."; }
-  else { captionEl.innerHTML = `<b>${N}</b> names in the draw · random every spin`; }
-}
-const toastEl = document.getElementById("toast");
-let toastT = null;
-function toast(msg) {
-  toastEl.textContent = msg; toastEl.classList.add("show");
-  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 1800);
-}
+    .empty[hidden] {
+      display: none;
+    }
+  </style>
+</head>
 
-/* ---------- init ---------- */
-spinBtn.addEventListener("click", spin);
-addEventListener("hashchange", () => {
-  state = readState(); names = cleanNames(state.n);
-  syncForm(); renderWheel(); updateCaption(); spinBtn.disabled = names.length < 2;
-});
+<body>
+  <canvas id="confetti"></canvas>
 
-writeState(state, false); // normalize URL if it was empty
-syncForm();
-renderWheel();
-updateCaption();
-spinBtn.disabled = names.length < 2;
-</script>
+  <header>
+    <button class="menu-btn" id="openMenu">Edit names</button>
+  </header>
+
+  <main>
+    <div class="stage">
+      <div class="pointer"></div>
+      <svg id="wheel" viewBox="0 0 400 400" aria-hidden="true"></svg>
+      <div class="hub"></div>
+      <div class="empty" id="empty" hidden>
+        <div class="empty-icon" aria-hidden="true">✦</div>
+        <p class="empty-msg" id="emptyMsg"></p>
+        <button class="empty-cta" id="emptyAdd">Add names</button>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="spin" id="spin">Spin</button>
+      <div class="caption" id="caption"></div>
+    </div>
+  </main>
+
+  <div class="scrim" id="scrim"></div>
+  <aside id="drawer" aria-label="Settings">
+    <div class="a-head">
+      <h2>Edit names</h2>
+      <button class="x" id="closeMenu" aria-label="Close">&times;</button>
+    </div>
+    <div class="a-body">
+      <div>
+        <label for="names">Names — one per line</label>
+        <textarea id="names" spellcheck="false"></textarea>
+      </div>
+      <button class="copy" id="copy">Copy share link</button>
+      <p class="hint">Every spin picks a fresh name at random. The share link carries the roster (these names), so
+        anyone on the team can open it and run the draw — no setup, no sign-in.</p>
+    </div>
+  </aside>
+
+  <div class="winner" id="winner" role="status" aria-live="polite">
+    <span class="eyebrow">Up next</span>
+    <div class="name" id="winnerName"></div>
+    <button class="dismiss" id="dismiss">Done</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    "use strict";
+
+    /* ---------- state in URL fragment (roster only) ---------- */
+    const DEFAULT = { n: ["Ada", "Grace", "Linus", "Margaret", "Dennis", "Barbara"] };
+
+    function readState() {
+      try {
+        const raw = decodeURIComponent(location.hash.slice(1));
+        if (!raw) return { ...DEFAULT };
+        const o = JSON.parse(raw);
+        return { n: Array.isArray(o.n) ? o.n.map(String) : DEFAULT.n.slice() };
+      } catch (e) { return { ...DEFAULT }; }
+    }
+    function writeState(st, push) {
+      const enc = encodeURIComponent(JSON.stringify({ n: st.n }));
+      // replace (not push) so editing doesn't spam history
+      history[push ? "pushState" : "replaceState"](null, "", "#" + enc);
+    }
+
+    let state = readState();
+    let names = cleanNames(state.n);
+
+    function cleanNames(arr) {
+      return arr.map(s => s.trim()).filter(Boolean);
+    }
+    /* unbiased index from the platform CSPRNG (rejection sampling kills modulo bias) */
+    function pickIndex(N) {
+      if (N < 2) return -1;
+      const limit = Math.floor(0x100000000 / N) * N;
+      const buf = new Uint32Array(1);
+      let x;
+      do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limit);
+      return x % N;
+    }
+
+    /* ---------- wheel rendering ---------- */
+    const PALETTE = ["#ff5d52", "#ffb43d", "#2bb6a8", "#7c5cd6", "#3f8fd8", "#e85aa0", "#7bbf4a"];
+    const CX = 200, CY = 200, R = 192, RLABEL = 122;
+    const wheel = document.getElementById("wheel");
+
+    function luminance(hex) {
+      const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+    function shade(hex, factor) {
+      const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
+      const r = clamp(parseInt(hex.slice(1, 3), 16) * factor);
+      const g = clamp(parseInt(hex.slice(3, 5), 16) * factor);
+      const b = clamp(parseInt(hex.slice(5, 7), 16) * factor);
+      return "#" + [r, g, b].map(c => c.toString(16).padStart(2, "0")).join("");
+    }
+    function pt(angleDeg, rad) {
+      const a = (angleDeg * Math.PI) / 180; // clockwise from top
+      return [CX + rad * Math.sin(a), CY - rad * Math.cos(a)];
+    }
+    function truncate(s, max) { return s.length > max ? s.slice(0, max - 1) + "…" : s; }
+
+    const stageEl = document.querySelector(".stage");
+    const emptyEl = document.getElementById("empty");
+    const emptyMsg = document.getElementById("emptyMsg");
+
+    function renderWheel() {
+      const N = names.length;
+      wheel.innerHTML = "";
+
+      if (N < 2) {
+        stageEl.classList.add("is-empty");
+        emptyEl.hidden = false;
+        emptyMsg.textContent = N === 0
+          ? "No names yet — add a few to start the draw."
+          : "Just one name — add at least one more to spin.";
+        return;
+      }
+
+      stageEl.classList.remove("is-empty");
+      emptyEl.hidden = true;
+
+      const seg = 360 / N;
+      const fs = Math.max(11, Math.min(22, 24 - N * 0.6));
+      const maxChars = Math.max(6, Math.round(16 - N * 0.25));
+      let prev = null;
+      for (let i = 0; i < N; i++) {
+        let c = PALETTE[i % PALETTE.length];
+        if (c === prev) c = PALETTE[(i + 1) % PALETTE.length]; // avoid adjacent repeat on wrap
+        prev = c;
+        const a0 = i * seg, a1 = (i + 1) * seg;
+        const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
+        const large = seg > 180 ? 1 : 0;
+        const path = `M ${CX} ${CY} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+        const mid = a0 + seg / 2;
+        const [lx, ly] = pt(mid, RLABEL);
+        const fill = luminance(c) > 0.6 ? "#16151f" : "#f3ead6";
+        wheel.insertAdjacentHTML("beforeend",
+          `<path d="${path}" fill="${c}" stroke="#16151f" stroke-width="1.5"/>` +
+          `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="middle" dominant-baseline="central"
+        transform="rotate(${mid.toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})"
+        font-family="Hanken Grotesk" font-weight="700" font-size="${fs}" fill="${fill}"
+        style="paint-order:stroke">${esc(truncate(names[i], maxChars))}</text>`);
+      }
+    }
+    function esc(s) { return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+    /* ---------- tick sound (synced to pointer flap) ---------- */
+    // A subtle wooden "tick" synthesized on the fly — one per pin crossing,
+    // so the audio lines up exactly with the pointer flap kicks below.
+    let audioCtx = null;
+    function primeAudio() {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+      } catch (e) { audioCtx = null; } // Web Audio unavailable — silently skip
+    }
+    function tick(when) {
+      if (!audioCtx) return;
+      const t = Math.max(when || 0, audioCtx.currentTime); // never schedule in the past
+      // Short triangle blip with a snappy exponential decay = soft "tock"
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(1400 + Math.random() * 200, t); // tiny pitch jitter
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.06, t + 0.002); // fast attack, low volume
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.045); // quick decay
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.06);
+    }
+
+    /* ---------- pointer flapper ---------- */
+    const pointer = document.querySelector(".pointer");
+    let flapPos = 0, flapVel = 0, flapRaf = null;
+    const FLAP_K = 0.22, FLAP_D = 0.18, FLAP_KICK = 20, FLAP_MAX = 22;
+
+    function startFlapper({ N, startRot, dip, target }) {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches || N < 2) return;
+      cancelAnimationFrame(flapRaf);
+      flapPos = 0; flapVel = 0;
+
+      const segDeg = 360 / N;
+      const t0 = performance.now();
+      // Track absolute wheel angle in "world" degrees (same as `rotation` variable)
+      let lastPinIdx = Math.floor(startRot / segDeg);
+
+      // Evaluate CSS cubic-bezier(x1,y1,x2,y2) at progress p via binary search on Bx(t)=p
+      function easeBez(x1, y1, x2, y2, p) {
+        p = Math.max(0, Math.min(1, p));
+        let lo = 0, hi = 1;
+        for (let i = 0; i < 10; i++) {
+          const t = (lo + hi) * 0.5;
+          const bx = t * t * t + 3 * x2 * t * t * (1 - t) + 3 * x1 * t * (1 - t) * (1 - t);
+          if (bx < p) lo = t; else hi = t;
+        }
+        const t = (lo + hi) * 0.5;
+        return t * t * t + 3 * y2 * t * t * (1 - t) + 3 * y1 * t * (1 - t) * (1 - t);
+      }
+
+      // Return the wheel's expected world angle at `elapsed` ms into the spin,
+      // mirroring the exact easing curves used in wheel.animate()
+      function wheelAngle(elapsed) {
+        if (elapsed <= 0) return startRot;
+        if (elapsed >= ANTICIPATE_MS + SPIN_MS) return target;
+        if (elapsed <= ANTICIPATE_MS)
+          return startRot + easeBez(0.4, 0, 0.5, 1, elapsed / ANTICIPATE_MS) * (dip - startRot);
+        return dip + easeBez(0.28, 0, 0.12, 1, (elapsed - ANTICIPATE_MS) / SPIN_MS) * (target - dip);
+      }
+
+      // Pre-schedule every tick on the audio clock. The wheel can sweep past
+      // several pins within one animation frame at peak speed, so firing ticks
+      // from the render loop drops them and quantizes the rest to the frame rate
+      // (audible as uneven ticking). Web Audio scheduling is sample-accurate, so
+      // instead we invert wheelAngle() to find the exact time of each upward pin
+      // crossing and queue them all up front.
+      if (audioCtx) {
+        const total = ANTICIPATE_MS + SPIN_MS;
+        const audioStart = audioCtx.currentTime + (performance.now() - t0) / 1000;
+        // wheelAngle rises monotonically across the main phase (dip → target),
+        // so binary-search the elapsed time at which it reaches each boundary.
+        const timeForAngle = (angleB) => {
+          let lo = ANTICIPATE_MS, hi = total;
+          for (let i = 0; i < 22; i++) {
+            const mid = (lo + hi) * 0.5;
+            if (wheelAngle(mid) < angleB) lo = mid; else hi = mid;
+          }
+          return (lo + hi) * 0.5;
+        };
+        const firstPin = Math.floor(dip / segDeg) + 1; // first boundary above the pull-back
+        const lastPin = Math.floor(target / segDeg);   // last boundary reached
+        for (let k = firstPin; k <= lastPin; k++) {
+          tick(audioStart + timeForAngle(k * segDeg) / 1000);
+        }
+      }
+
+      function frame() {
+        const angle = wheelAngle(performance.now() - t0);
+        // Pin crossings: every time the world angle crosses a multiple of segDeg
+        const pinIdx = Math.floor(angle / segDeg);
+        if (pinIdx > lastPinIdx) {
+          flapVel -= FLAP_KICK; // one kick regardless of how many crossed this frame
+          lastPinIdx = pinIdx;
+        } else if (pinIdx < lastPinIdx) {
+          lastPinIdx = pinIdx;  // pullback — update index, no kick
+        }
+        flapVel += (-FLAP_K * flapPos - FLAP_D * flapVel);
+        flapPos += flapVel;
+        flapPos = Math.max(-FLAP_MAX, Math.min(FLAP_MAX, flapPos));
+        pointer.style.setProperty("--flap", flapPos.toFixed(2) + "deg");
+        flapRaf = requestAnimationFrame(frame);
+      }
+      flapRaf = requestAnimationFrame(frame);
+    }
+
+    function stopFlapper() {
+      cancelAnimationFrame(flapRaf);
+      // Ring down the spring naturally before resetting
+      function settle() {
+        flapVel += (-FLAP_K * flapPos - FLAP_D * flapVel);
+        flapPos += flapVel;
+        flapPos = Math.max(-FLAP_MAX, Math.min(FLAP_MAX, flapPos));
+        pointer.style.setProperty("--flap", flapPos.toFixed(2) + "deg");
+        if (Math.abs(flapPos) > 0.12 || Math.abs(flapVel) > 0.06) {
+          flapRaf = requestAnimationFrame(settle);
+        } else {
+          flapPos = 0; flapVel = 0;
+          pointer.style.setProperty("--flap", "0deg");
+        }
+      }
+      flapRaf = requestAnimationFrame(settle);
+    }
+
+    /* ---------- spin ---------- */
+    let rotation = 0;
+    let spinning = false;
+    const SPINS = 5;
+    const ANTICIPATION = 16;   // deg the wheel pulls back before launching
+    const SPIN_MS = 4500; // forward spin duration (punchy)
+    const ANTICIPATE_MS = 320;  // pull-back phase duration
+    const REDUCED_MS = 400;  // single-phase duration under reduced motion
+    const spinBtn = document.getElementById("spin");
+
+    function spin() {
+      const N = names.length;
+      const idx = pickIndex(N);
+      if (idx < 0 || spinning) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      primeAudio(); // unlock/resume audio within the click gesture
+      hideWinner();
+
+      const seg = 360 / N;
+      const winnerMid = idx * seg + seg / 2;           // clockwise deg from top
+      const desired = (360 - (winnerMid % 360)) % 360; // rotation (mod 360) putting winner under top pointer
+      const base = rotation - (rotation % 360);
+      let target = base + SPINS * 360 + desired;
+      if (target <= rotation + 360) target += 360;     // always travel forward
+      const startRot = rotation;
+      rotation = target;
+
+      let anim;
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        // Reduced motion: direct snap, no anticipation
+        anim = wheel.animate([
+          { transform: `rotate(${startRot}deg)` },
+          { transform: `rotate(${target}deg)` },
+        ], { duration: REDUCED_MS, easing: "ease-out", fill: "forwards" });
+      } else {
+        // Full motion: pull back slightly → hard launch → long coast
+        const dip = startRot - ANTICIPATION;
+        const dipOffset = ANTICIPATE_MS / (ANTICIPATE_MS + SPIN_MS);
+        anim = wheel.animate([
+          {
+            transform: `rotate(${startRot}deg)`, offset: 0,
+            easing: "cubic-bezier(0.4,0,0.5,1)"
+          },       // ease into pull-back
+          {
+            transform: `rotate(${dip}deg)`, offset: dipOffset,
+            easing: "cubic-bezier(0.28,0,0.12,1)"
+          },     // launch: accelerate → long coast
+          { transform: `rotate(${target}deg)`, offset: 1 },
+        ], { duration: ANTICIPATE_MS + SPIN_MS, fill: "forwards" });
+        startFlapper({ N, startRot, dip, target });      // begin pointer flap
+      }
+
+      anim.finished.then(() => {
+        wheel.style.transform = `rotate(${target}deg)`; // commit final state as inline style
+        anim.cancel();                                   // drop the fill so inline style takes over
+        stopFlapper();                                   // ring down the pointer spring
+        finishSpin(idx);
+      }).catch(() => { }); // animation interrupted — no-op
+    }
+
+    function finishSpin(idx) {
+      spinning = false;
+      spinBtn.disabled = false;
+      showWinner(names[idx]);
+      burst();
+    }
+
+    /* ---------- winner overlay ---------- */
+    const winnerEl = document.getElementById("winner");
+    const winnerName = document.getElementById("winnerName");
+    function showWinner(name) {
+      winnerName.textContent = name;
+      winnerEl.classList.add("show");
+    }
+    function hideWinner() { winnerEl.classList.remove("show"); }
+    document.getElementById("dismiss").addEventListener("click", hideWinner);
+    winnerEl.addEventListener("click", e => { if (e.target === winnerEl) hideWinner(); });
+
+    /* ---------- confetti (self-contained) ---------- */
+    const cvs = document.getElementById("confetti");
+    const cx = cvs.getContext("2d");
+    let parts = [], raf = null, dpr = 1, emitUntil = 0;
+    function sizeCanvas() {
+      dpr = window.devicePixelRatio || 1;
+      cvs.width = innerWidth * dpr; cvs.height = innerHeight * dpr;
+      cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    addEventListener("resize", sizeCanvas); sizeCanvas();
+
+    // Weighted shape picker: 55% rect, 25% dot, 20% ribbon
+    function pickShape() {
+      const r = Math.random();
+      return r < 0.55 ? "rect" : r < 0.80 ? "dot" : "ribbon";
+    }
+
+    function makePart(x, y, vx, vy) {
+      const color = PALETTE[(Math.random() * PALETTE.length) | 0];
+      const shape = pickShape();
+      const isRibbon = shape === "ribbon";
+      return {
+        x, y, vx, vy,
+        shape,
+        g: 0.18 + Math.random() * 0.10,
+        w: isRibbon ? 3 + Math.random() * 3 : 6 + Math.random() * 6,
+        h: isRibbon ? 14 + Math.random() * 14 : 7 + Math.random() * 8,
+        r: 3 + Math.random() * 4,           // dot radius
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.35,
+        flip: Math.random() * Math.PI * 2,     // 3-D tumble angle (independent axis)
+        vflip: 0.12 + Math.random() * 0.18,     // tumble speed
+        color,
+        backColor: shade(color, 0.55),            // darker back face
+        foil: Math.random() < 0.15,            // metallic shimmer
+        life: 110 + Math.random() * 60,
+      };
+    }
+
+    function burst() {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      // Stage 1 (t=0) — central radial pop synced with the winner card
+      const cx_ = innerWidth * 0.5, cy_ = innerHeight * 0.42;
+      for (let i = 0; i < 60; i++) {
+        const ang = (i / 60) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+        const spd = 10 + Math.random() * 14;
+        parts.push(makePart(cx_, cy_, Math.cos(ang) * spd, Math.sin(ang) * spd));
+      }
+
+      if (!raf) loop();
+
+      // Stage 2 (t≈150ms) — corner cannons
+      setTimeout(() => {
+        const lx = innerWidth * 0.04, ly = innerHeight * 0.88;
+        for (let i = 0; i < 70; i++) {
+          const ang = -Math.PI * 0.435 + (Math.random() - 0.5) * (Math.PI * 0.28);
+          const spd = 16 + Math.random() * 12;
+          parts.push(makePart(lx, ly, Math.cos(ang) * spd, Math.sin(ang) * spd));
+        }
+        const rx = innerWidth * 0.96, ry = innerHeight * 0.88;
+        for (let i = 0; i < 70; i++) {
+          const ang = -Math.PI * 0.565 + (Math.random() - 0.5) * (Math.PI * 0.28);
+          const spd = 16 + Math.random() * 12;
+          parts.push(makePart(rx, ry, Math.cos(ang) * spd, Math.sin(ang) * spd));
+        }
+      }, 150);
+
+      // Stage 3 (t≈300ms → ~2.5s) — settling shower from the top
+      setTimeout(() => { emitUntil = performance.now() + 2200; }, 300);
+    }
+
+    function loop() {
+      const now = performance.now();
+      cx.clearRect(0, 0, innerWidth, innerHeight);
+
+      // Top shower — drip out new particles while the emitter is live
+      if (now < emitUntil && parts.length < 800) {
+        const batch = 4 + (Math.random() * 3 | 0);
+        for (let i = 0; i < batch; i++) {
+          const vx = (Math.random() - 0.5) * 5;
+          const vy = 1.5 + Math.random() * 3;
+          parts.push(makePart(Math.random() * innerWidth, -12, vx, vy));
+        }
+      }
+
+      parts = parts.filter(p => p.life > 0 && p.y < innerHeight + 40);
+      for (const p of parts) {
+        // Physics
+        p.vy = Math.min(p.vy + p.g, 22); // terminal velocity cap
+        p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.rot += p.vr;
+        p.flip += p.vflip; p.life--;
+
+        const alpha = Math.min(1, p.life / 30);
+        const cosFlip = Math.cos(p.flip);
+        const facing = cosFlip >= 0; // true = front face visible
+
+        cx.save();
+        cx.translate(p.x, p.y);
+        cx.rotate(p.rot);
+        cx.globalAlpha = alpha;
+
+        if (p.shape === "dot") {
+          // Dots: squash along the flip axis for a coin-flip illusion
+          cx.scale(1, Math.abs(cosFlip) * 0.6 + 0.4);
+          cx.fillStyle = facing ? p.color : p.backColor;
+          cx.beginPath();
+          cx.arc(0, 0, p.r, 0, Math.PI * 2);
+          cx.fill();
+        } else if (p.shape === "ribbon") {
+          // Ribbon: thin streamer that curves slightly with the flip
+          const bend = cosFlip * p.w * 0.8;
+          cx.fillStyle = facing ? p.color : p.backColor;
+          cx.beginPath();
+          cx.moveTo(-p.w / 2, -p.h / 2);
+          cx.quadraticCurveTo(bend, 0, -p.w / 2, p.h / 2);
+          cx.quadraticCurveTo(p.w / 2 + bend, 0, p.w / 2, -p.h / 2);
+          cx.closePath();
+          cx.fill();
+        } else {
+          // Rect: scale width by |cos| for the 3-D tumble
+          cx.scale(Math.abs(cosFlip), 1);
+          cx.fillStyle = facing ? p.color : p.backColor;
+          cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        }
+
+        // Foil shimmer — flash a bright highlight at face-on peak
+        if (p.foil && Math.abs(cosFlip) > 0.85) {
+          cx.globalAlpha = alpha * (Math.abs(cosFlip) - 0.85) / 0.15 * 0.65;
+          cx.fillStyle = shade(p.color, 2.2);
+          if (p.shape === "dot") {
+            cx.beginPath(); cx.arc(0, 0, p.r * 0.55, 0, Math.PI * 2); cx.fill();
+          } else {
+            cx.fillRect(-p.w * 0.3, -p.h / 2, p.w * 0.6, p.h);
+          }
+        }
+
+        cx.restore();
+      }
+      if (parts.length || now < emitUntil) raf = requestAnimationFrame(loop);
+      else { raf = null; cx.clearRect(0, 0, innerWidth, innerHeight); }
+    }
+
+    /* ---------- drawer + editing ---------- */
+    const drawer = document.getElementById("drawer");
+    const scrim = document.getElementById("scrim");
+    const namesTA = document.getElementById("names");
+
+    function openDrawer() { drawer.classList.add("open"); scrim.classList.add("open"); }
+    function closeDrawer() { drawer.classList.remove("open"); scrim.classList.remove("open"); }
+    document.getElementById("openMenu").addEventListener("click", openDrawer);
+    document.getElementById("closeMenu").addEventListener("click", closeDrawer);
+    document.getElementById("emptyAdd").addEventListener("click", openDrawer);
+    scrim.addEventListener("click", closeDrawer);
+
+    function syncForm() {
+      namesTA.value = state.n.join("\n");
+    }
+    function applyEdits(push) {
+      state.n = namesTA.value.split("\n");
+      names = cleanNames(state.n);
+      writeState(state, push);
+      renderWheel();
+      updateCaption();
+      spinBtn.disabled = names.length < 2;
+    }
+    namesTA.addEventListener("input", () => applyEdits(false));
+
+    document.getElementById("copy").addEventListener("click", async () => {
+      applyEdits(false);
+      const url = location.origin + location.pathname + location.hash;
+      try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+      catch (e) { toast("Copy failed — select the address bar"); }
+    });
+
+    /* ---------- caption + toast ---------- */
+    const captionEl = document.getElementById("caption");
+    function updateCaption() {
+      const N = names.length;
+      if (N < 2) { captionEl.innerHTML = "Add at least <b>2 names</b> in “Edit names”."; }
+      else { captionEl.innerHTML = `<b>${N}</b> names in the draw · random every spin`; }
+    }
+    const toastEl = document.getElementById("toast");
+    let toastT = null;
+    function toast(msg) {
+      toastEl.textContent = msg; toastEl.classList.add("show");
+      clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 1800);
+    }
+
+    /* ---------- init ---------- */
+    spinBtn.addEventListener("click", spin);
+    addEventListener("hashchange", () => {
+      state = readState(); names = cleanNames(state.n);
+      syncForm(); renderWheel(); updateCaption(); spinBtn.disabled = names.length < 2;
+    });
+
+    writeState(state, false); // normalize URL if it was empty
+    syncForm();
+    renderWheel();
+    updateCaption();
+    spinBtn.disabled = names.length < 2;
+  </script>
 </body>
+
 </html>
